@@ -12,7 +12,7 @@ npx skills add JaehoonSon/hermes-skill
 ## Run the CLI
 
 ```bash
-npx -y @hermes/cli@latest <command>   # always the latest version
+npx -y @tryhermes/cli@latest <command>   # always the latest version
 ```
 
 Full docs: https://docs.tryhermes.dev
