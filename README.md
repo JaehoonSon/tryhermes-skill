@@ -6,7 +6,7 @@ senders, triggers, drafts, and emails.
 ## Install
 
 ```bash
-npx skills add JaehoonSon/hermes-skill
+npx skills add JaehoonSon/tryhermes-skill
 ```
 
 ## Run the CLI
