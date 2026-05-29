@@ -32,7 +32,7 @@ This means:
 - **No renaming.** What's in the DB column `cooldown_hours` is in the JSON field `cooldown_hours`. Not `cooldownHours`, not `cooldown`. Agents and scripts can use a single canonical name end to end.
 - **No omission.** All columns are returned, including system-managed ones (`id`, `org_id`, `created_at`, `updated_at`). If a column is nullable and unset, it appears as `null`, not missing.
 - **Update flags map directly.** Every `--flag-name <value>` on an `update` command writes to the column `flag_name` (kebab → snake). The per-command pages list every mutable column and its flag. Immutable columns (`id`, `org_id`, `created_at`, `updated_at`, plus content fields managed by NL flows like `detection_query` and `email_prompt`) are noted explicitly.
-- **Secrets are redacted in CLI output but keep their column name.** Encrypted columns (e.g. `postgres_url`, `firestore_credentials`) appear as `"<redacted>"` rather than the plaintext value. The field name is preserved so agents can still detect "is this set?" without needing the secret.
+- **Secrets are redacted in CLI output but keep their column name.** Encrypted columns (e.g. `postgres_url`, `firestore_credentials`, `posthog_api_key`) appear as `"<redacted>"` rather than the plaintext value. The field name is preserved so agents can still detect "is this set?" without needing the secret.
 
 Each command reference page has a **Fields** table listing every column on the underlying row: column name, type, default, whether it's settable on `create`, whether it's settable on `update`, and (if so) the corresponding flag. Treat that table as the source of truth.
 
