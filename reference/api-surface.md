@@ -1,0 +1,73 @@
+# API surface — driving Hermes via `hermesApi`
+
+When you are the in-app assistant, you drive Hermes through the **`hermesApi`** tool instead of the `hermes` CLI. It takes `{ method, path, body? }` and calls the platform's own API, scoped to the current org. The command reference pages (`reference/commands/*.md`) describe the same operations — **a CLI flag is a body field** (e.g. `--email-prompt "…"` → `body.email_prompt`).
+
+> Reads return immediately. Writes/deletes (create, edit, delete, approve, run, verify) **pause for the user's approval** automatically — issue the call; the platform surfaces an approval card. You do not need to ask first in text.
+
+## Conventions
+- Paths are relative to the API root, e.g. `GET /triggers`, `POST /drafts/<id>/approve`.
+- Replace `<id>` / `<triggerId>` with a real id you obtained from a list/get call.
+- Bodies are JSON objects using the **snake_case** field names from the command reference pages.
+- List endpoints accept filters as a query string, e.g. `GET /drafts?status=drafted`.
+- **Time windows accept a duration shorthand** — `30d`, `24h`, `2w`, `90d` — not just exact timestamps. Use it for `since` (and the overview `window_days`), e.g. `GET /analytics/overview?since=30d`, `GET /analytics/campaign/<id>?since=7d`, `GET /emails?since=24h`. `until` is an ISO timestamp and defaults to now. Prefer the shorthand; don't compute exact dates.
+
+## Endpoint map
+
+### Connections & data (read schema, iterate queries)
+| Call | Purpose |
+|---|---|
+| `GET /connections` | List connected data sources. |
+| `GET /connections/<id>` | One connection's details. |
+| `GET /connections/<id>/schema` | Condensed schema (tables/collections + fields). |
+| `POST /connections/<id>/query` body `{ "query": "SELECT … LIMIT 50" }` | Run a **read-only** query (SQL/HogQL string, or the Firestore DSL object). Use to validate a cohort before creating a trigger. |
+| `POST /connections/<id>/inspect-schema` | Force a fresh schema introspection. |
+
+> For authoring a trigger's detection query, the typed query tools (`testRemoteSqlQuery` etc.) are also available and render results inline — prefer them for the iterate-a-query loop; use `hermesApi` query for one-off checks.
+
+### Triggers
+| Call | Purpose |
+|---|---|
+| `GET /triggers` (`?status=active\|paused`) | List triggers. |
+| `GET /triggers/<id>` | One trigger. |
+| `POST /triggers` body `{ detection_query, email_prompt, … }` | Create a trigger. (For the guided authoring flow, the typed `createIntentTrigger` tool with its preview card is preferred.) |
+| `PATCH /triggers/<id>` body `{ …changed fields }` | Edit a trigger. |
+| `DELETE /triggers/<id>` | Delete a trigger. |
+| `POST /triggers/<id>/run` | Scan now — enqueues a run (returns a `job_id`; see polling below). |
+| `POST /triggers/<id>/preview` | Non-persistent preview of detection. |
+
+### Drafts (review & approve in chat)
+| Call | Purpose |
+|---|---|
+| `GET /drafts` (`?status=drafted\|approved\|…`, `?trigger_id=<id>`) | List drafts awaiting review. |
+| `GET /drafts/<id>` | One draft (subject, body, recipient). |
+| `POST /drafts/<id>/approve` | Approve one draft → queues delivery. |
+| `POST /drafts/<id>/reject` | Reject one draft → releases the recipient. |
+| `POST /drafts/approve` body `{ trigger_id }` **or** `{ all_triggers: true, confirm: true }` | Bulk approve. |
+
+### Emails (sent mail + delivery)
+| Call | Purpose |
+|---|---|
+| `GET /emails` (filters) | List sent / in-flight emails. |
+| `GET /emails/<id>` | One email + its delivery timeline (opens, clicks, bounces). |
+
+### Analytics
+| Call | Purpose |
+|---|---|
+| `GET /analytics/overview` (`?since=7d`) | Org-wide metrics (sends, opens, clicks, replies). |
+| `GET /analytics/campaign/<triggerId>` (`?since=…`) | Per-trigger metrics. |
+
+### Senders & domains (sending setup)
+| Call | Purpose |
+|---|---|
+| `GET /senders` · `GET /senders/<id>` | List / show sender identities. |
+| `POST /senders` · `PATCH /senders/<id>` · `DELETE /senders/<id>` | Create / update / remove a sender. |
+| `GET /domains` · `GET /domains/<id>` | List / show sending domains + DNS records. |
+| `POST /domains` · `POST /domains/<id>/verify` · `DELETE /domains/<id>` | Add / verify / remove a domain. |
+
+## Async operations — poll for outcomes
+`POST /triggers/<id>/run` and `POST /drafts/approve` are **asynchronous**: they enqueue work and return quickly (a `job_id`), not the final result. Do not claim emails were sent. To observe outcomes, poll:
+
+1. After **run**: `GET /drafts?trigger_id=<id>` to see drafts the run produced.
+2. After **approve**: `GET /emails` (and `GET /emails/<id>`) to confirm delivery, then `GET /analytics/campaign/<id>` for engagement.
+
+Tell the user it's processing and report concrete results once the follow-up reads return them.
