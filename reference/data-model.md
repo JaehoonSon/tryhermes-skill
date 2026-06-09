@@ -54,8 +54,9 @@ An email sender identity — `email_address` plus display metadata, bound to one
 
 A campaign definition: an audience (who) plus an intent (what to say).
 
-- Created via natural language: Hermes translates intent → `detection_query` (SQL) + `email_prompt`.
-- Content fields (`detection_query`, `email_prompt`) are iteratively edited via `hermes triggers refine`, not literal flags.
+- The caller writes the `detection_query` (in the source's dialect) + `email_prompt`; Hermes validates against the live source and persists.
+- Bound to one source via `source_connection_id` (the org default unless `--source <id>` is passed on create). One trigger queries exactly one connection.
+- Content fields (`detection_query`, `email_prompt`) and the source are edited in place via `hermes triggers update` (e.g. `--detection-query`, `--email-prompt`, `--source`).
 - Operational columns (settable via flags on `update`): `auto_send`, `cooldown_hours`, `is_recurring`, `recurrence_cooldown_days`, `scan_interval_minutes`, `category`, `footer_enabled`, `footer_override`, `address_enabled`, `address_override`, `track_opens`, `track_clicks`.
 - `is_active` toggled by `activate` / `pause`.
 - Full columns: [triggers.md → Fields](commands/triggers.md#fields).

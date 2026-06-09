@@ -7,21 +7,34 @@ There is **no chat agent** in this flow. Hermes is the platform; the reasoning l
 ## The flow
 
 ```
-hermes connections schema                                 # 1. learn source_type + dialect
-hermes connections query "<candidate>"                    # 2. iterate the query until the cohort is right
+hermes connections list                                   # 0. (multi-source orgs) pick the source to target
+hermes connections schema [<id>]                          # 1. learn source_type + dialect
+hermes connections query "<candidate>" [<id>]             # 2. iterate the query until the cohort is right
 hermes triggers create \
   --name "..." \
   --detection-query "<the validated query>" \
   --email-prompt "..." \
-  [--sender <id>] [...operational flags]                  # 3. submit (created active)
+  [--source <id>] [--sender <id>] [...operational flags]  # 3. submit (created active)
 ```
 
+If the org has only one source, omit `<id>` / `--source` everywhere — Hermes uses the default. If it has several, **pick one up front and thread its id through all three steps** so the schema, the test query, and the trigger all bind to the same source. A trigger lives against a single source (`source_connection_id`).
+
 The trigger is **created active** — it starts firing on its schedule immediately, with the first run's drafts held for approval (auto-send is off by default). `create` returns a `detection_preview` so you see the live audience size without a separate call. Pause with `hermes triggers pause <id>` if you want to hold it.
+
+## Step 0 — Pick the source (multi-source orgs)
+
+If the org has more than one connection, decide which one this trigger should run against before reading any schema:
+
+```
+hermes connections list
+```
+
+Pick the source that matches the request — a named database, an analytics system (PostHog), an uploaded CSV, or a product area. Note its `id` and pass it to every step below. With a single source, skip this and let everything default.
 
 ## Step 1 — Read the schema
 
 ```
-hermes connections schema
+hermes connections schema [<id>]
 ```
 
 The response leads with `source_type`, `query_language`, and an `example_query`. **Always read this first.** If the source is Firestore, the example is a JSON object; if SQL, it's a SQL string. The full schema (tables/columns or collections/fields) is in the same payload.
@@ -57,11 +70,12 @@ hermes triggers create \
   --name "Welcome 24h signups" \
   --detection-query "SELECT id, email FROM users WHERE created_at > now() - interval '24 hours'" \
   --email-prompt "Write a warm, short welcome email. Mention the signup date naturally; keep it under 4 sentences." \
+  --source cn_... \
   --sender snd_... \
   --cooldown-hours 168
 ```
 
-Hermes re-runs the query against the source as part of validation. If the query fails or the projection is missing required fields, the response includes the underlying error and the example query for the connection's dialect.
+Pass `--source <id>` to bind the trigger to the connection you tested against (omit it to use the org default). Hermes re-runs the query against that source as part of validation. If the query fails or the projection is missing required fields, the response includes the underlying error and the example query for the connection's dialect.
 
 ## Step 4 — (Optional) preview
 
@@ -113,6 +127,7 @@ Everything is editable via `hermes triggers update <id>` — operational fields 
 ```
 hermes triggers update <id> --detection-query "<new query>"   # re-validated against the live source
 hermes triggers update <id> --email-prompt "<new brief>"
+hermes triggers update <id> --source <connection-id>          # re-point to another source (re-validates the query)
 ```
 
 Editing `--detection-query` re-runs the full validation pipeline (dialect match + dry-run + `id`/`email` projection). A bad query is rejected and the trigger is left unchanged, so test with `hermes connections query` first. If you're pivoting to a fundamentally different audience it's often cleaner to delete and recreate, but for tweaks, `update` is in place and safe.

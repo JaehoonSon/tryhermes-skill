@@ -73,6 +73,16 @@ Every JSON response includes every column above. Fields not applicable to the cu
 
 For Firestore the `schema_snapshot` instead has `query_language: "firestore"` and a `collections` array with `inferred_fields` and `presence_rate` per field. For PostHog it has `query_language: "hogql"` and a sampled list of common events — see [data-sources.md](../data-sources.md).
 
+## Selecting a source (multi-source orgs)
+
+`show`, `schema`, `query`, `inspect-schema`, and `remove` all act on **one** connection. Three ways to choose it, in precedence order:
+
+1. `--source <id>` (alias `--connection <id>`) — explicit, and the form to prefer in scripts/agents. Wins over everything.
+2. The positional `[id]` argument — back-compat; equivalent to `--source` when no flag is given.
+3. **Default** — if you name no source and the org has more than one, the CLI uses the org default (`is_default = true`) and prints a one-line hint to stderr naming the chosen source and how to target another. `--json` output is unaffected (the hint goes to stderr only).
+
+For trigger creation, the matching selector is `hermes triggers create --source <id>` → `source_connection_id`.
+
 ## Subcommands
 
 ### `hermes connections list`
@@ -125,7 +135,7 @@ Convenience wrapper that returns just the `schema_snapshot` portion of the conne
 hermes connections schema
 ```
 
-If the org has multiple connections, omit `<id>` to use the default source or pass a specific connection id.
+If the org has multiple connections, omit the id to use the default source (a stderr hint names it), or target a specific one with `--source <id>` (or the positional id).
 
 ### `hermes connections query "<q>" [<id>]`
 
@@ -145,9 +155,9 @@ hermes connections query "SELECT distinct_id AS id, properties.email AS email FR
 
 If you send the wrong dialect, the error response identifies the actual `source_type` and includes the example query for that source.
 
-### `hermes connections inspect-schema <id>`
+### `hermes connections inspect-schema [<id>]`
 
-Re-runs introspection. Updates `schema_snapshot` and `last_synced_at`. Use after schema changes on the customer source. Returns a `job_id`.
+Re-runs introspection synchronously against the live source. Updates `schema_snapshot` and `last_synced_at` and returns the refreshed connection row. Use after schema changes on the customer source. Accepts `--source <id>` (or the positional id); defaults to the org default.
 
 ### `hermes connections remove [<id>] --confirm [--csv-table <name>]`
 

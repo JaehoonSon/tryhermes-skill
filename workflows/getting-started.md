@@ -7,7 +7,7 @@ The setup chain is **auth → (orgs create) → link → connection → domain �
 ## Prerequisites
 
 - An account on app.hermes.dev (sign up on the dashboard once — there's no CLI sign-up flow yet).
-- Credentials for one supported data source — Postgres URL, MySQL URL, Firestore service account, or a CSV file. See [data-sources.md](../reference/data-sources.md) for the full matrix.
+- Credentials for at least one supported data source — Postgres URL, MySQL URL, Firestore service account, a CSV file, or a PostHog project. You can connect several; see [data-sources.md](../reference/data-sources.md) for the full matrix.
 - A domain you control DNS for.
 
 ## 1. Authenticate
@@ -58,15 +58,19 @@ hermes connections add --postgres-url 'postgres://readonly:...@host/db'
 hermes connections add --mysql-url    'mysql://readonly:...@host:3306/db'
 hermes connections add --csv-file     './users.csv'
 hermes connections add --firestore-credentials "$(cat sa.json)" --firestore-project-id my-project
+hermes connections add --posthog-host https://us.posthog.com --posthog-project-id 12345 --posthog-api-key phx_...
 ```
 
-The CLI introspects the schema and caches a snapshot — tables/columns for SQL sources, collections/inferred fields for Firestore. This snapshot is the **contract** the caller reads before writing any detection query.
+The CLI introspects the schema and caches a snapshot — tables/columns for SQL sources, collections/inferred fields for Firestore, sampled events for PostHog. This snapshot is the **contract** the caller reads before writing any detection query.
+
+You can add **more than one** source. The first becomes the org default; add later sources with `--default` to change which is the fallback. List them any time:
 
 ```
-hermes connections schema
+hermes connections list
+hermes connections schema [<id>]   # omit <id> for the default source
 ```
 
-The response leads with `source_type`, `query_language`, and an `example_query`. Read it before step 6. See [data-sources.md](../reference/data-sources.md) for dialect details.
+The schema response leads with `source_type`, `query_language`, and an `example_query`. Read it before step 6. With multiple sources, note the connection id you intend to use and pass it through the rest of the flow. See [data-sources.md](../reference/data-sources.md) for dialect details.
 
 ## 5. Set up sending
 
@@ -93,6 +97,8 @@ hermes triggers create \
   --detection-query "SELECT id, email FROM users WHERE created_at > now() - interval '24 hours'" \
   --email-prompt "Write a warm, short welcome email mentioning the signup date naturally."
 ```
+
+If you have more than one source, target one explicitly on both the query and the trigger: `hermes connections query "<q>" <id>` and `hermes triggers create --source <id> ...`. Omit them to use the org default.
 
 For Firestore the query is a JSON DSL object instead of SQL — see [data-sources.md](../reference/data-sources.md) and [create-trigger.md](create-trigger.md) for the full authoring workflow.
 

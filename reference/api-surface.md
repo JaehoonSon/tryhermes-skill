@@ -22,14 +22,16 @@ When you are the in-app assistant, you drive Hermes through the **`hermesApi`** 
 | `POST /connections/<id>/query` body `{ "query": "SELECT … LIMIT 50" }` | Run a **read-only** query (SQL/HogQL string, or the Firestore DSL object). Use to validate a cohort before creating a trigger. |
 | `POST /connections/<id>/inspect-schema` | Force a fresh schema introspection. |
 
-> For authoring a trigger's detection query, the typed query tools (`testRemoteSqlQuery` etc.) are also available and render results inline — prefer them for the iterate-a-query loop; use `hermesApi` query for one-off checks.
+> **Multiple sources.** An org can have several connections (`GET /connections` lists them; one is the default). Pick the one matching the request, then use its `<id>` in the schema/query paths above and in `source_connection_id` on `POST /triggers`. When two sources are equally plausible and choosing wrong would build the wrong trigger, ask one concise question first. See [data-sources.md](data-sources.md).
+
+> For authoring a trigger's detection query, the typed query tools (`testRemoteSqlQuery` etc.) are also available and render results inline — prefer them for the iterate-a-query loop; use `hermesApi` query for one-off checks. They accept a `connectionId` to target a non-default source.
 
 ### Triggers
 | Call | Purpose |
 |---|---|
 | `GET /triggers` (`?status=active\|paused`) | List triggers. |
 | `GET /triggers/<id>` | One trigger. |
-| `POST /triggers` body `{ detection_query, email_prompt, … }` | Create a trigger. (For the guided authoring flow, the typed `createIntentTrigger` tool with its preview card is preferred.) |
+| `POST /triggers` body `{ detection_query, email_prompt, source_connection_id?, … }` | Create a trigger. Pass `source_connection_id` to bind it to a specific source (defaults to the org default). (For the guided authoring flow, the typed `createIntentTrigger` tool with its preview card is preferred.) |
 | `PATCH /triggers/<id>` body `{ …changed fields }` | Edit a trigger. |
 | `DELETE /triggers/<id>` | Delete a trigger. |
 | `POST /triggers/<id>/run` | Scan now — enqueues a run (returns a `job_id`; see polling below). |

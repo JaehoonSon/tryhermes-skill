@@ -17,14 +17,23 @@ This skill teaches you the mental model and points you at the right command or w
 
 ```
 organization
-  ├── connection           (one customer data source per org — Postgres, MySQL, CSV, or Firestore)
+  ├── connection           (one or more customer data sources — Postgres, MySQL, CSV, Firestore, PostHog; one is the default)
   ├── domain → sender      (a verified domain, then one or more sender identities on it)
-  └── trigger              (detection query + email prompt, both caller-written)
+  └── trigger              (detection query + email prompt, both caller-written; bound to one source)
        ├── draft           (one per detected user, per run, awaiting approval)
        └── email           (a sent or in-flight message)
 ```
 
 Every command operates on the **linked organization** (set via `hermes link`) unless overridden with `--org`.
+
+## Multiple data sources
+
+An org can connect **several** data sources at once (e.g. a production Postgres, an analytics PostHog, a CSV upload). One is the **default**, but the default is only a fallback — not a reason to be stubborn.
+
+- **List before you pick.** When the org has more than one source, run `hermes connections list` and choose the source that matches the request (a named database, an analytics system, an uploaded file, a product area).
+- **Thread one source through the whole flow.** Once you pick a connection id, pass it to every step: `connections schema <id>`, `connections query "<q>" <id>`, and `triggers create --source <id>`. A trigger is bound to a single source via `source_connection_id`.
+- **Each source speaks its own dialect.** Postgres/MySQL/CSV are SQL, Firestore is a JSON DSL, PostHog is HogQL. Read the chosen source's schema first — see [data-sources.md](reference/data-sources.md).
+- **When to ask.** If two sources are equally plausible and picking wrong would build the wrong trigger, ask one concise question. Otherwise pick the best match and say which source you used.
 
 ## Required setup before sending
 
@@ -41,13 +50,16 @@ You cannot send email without a verified domain plus a sender on it. You cannot 
 ## Authoring a trigger (the core loop)
 
 ```
-hermes connections schema                          # read source_type + dialect + example query
-hermes connections query "<candidate>"             # iterate read-only until the cohort is right
+hermes connections list                            # (multi-source orgs) pick the source that matches the request
+hermes connections schema [<id>]                   # read source_type + dialect + example query
+hermes connections query "<candidate>" [<id>]      # iterate read-only until the cohort is right
 hermes triggers create \
   --detection-query "<validated query>" \
   --email-prompt "..." \
-  [...other flags]                                 # submit; Hermes re-validates against the live source
+  [--source <id>] [...other flags]                 # submit; Hermes re-validates against the live source
 ```
+
+Omit `<id>` / `--source` to use the org default. With multiple sources, pass the **same** connection id to every step so the schema you read, the query you test, and the trigger you create all target one source.
 
 The detection query is **not always SQL** — for Firestore connections it's a JSON DSL object. Always read the connection's schema first to learn the right dialect. See [data-sources.md](reference/data-sources.md).
 
