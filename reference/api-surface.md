@@ -19,7 +19,7 @@ When you are the in-app assistant, you drive Hermes through the **`hermesApi`** 
 | `GET /connections` | List connected data sources. |
 | `GET /connections/<id>` | One connection's details. |
 | `GET /connections/<id>/schema` | Condensed schema (tables/collections + fields). |
-| `POST /connections/<id>/query` body `{ "query": "SELECT … LIMIT 50" }` | Run a **read-only** query (SQL/HogQL string, or the Firestore DSL object). Use to validate a cohort before creating a trigger. |
+| `POST /connections/<id>/query` body `{ "query": "SELECT … LIMIT 50" }` | Run a **read-only** query (SQL/HogQL string, or the Firestore/Stripe DSL object). Use to validate a cohort before creating a trigger. |
 | `POST /connections/<id>/inspect-schema` | Force a fresh schema introspection. |
 
 > **Multiple sources.** An org can have several connections (`GET /connections` lists them; one is the default). Pick the one matching the request, then use its `<id>` in the schema/query paths above and in `source_connection_id` on `POST /triggers`. When two sources are equally plausible and choosing wrong would build the wrong trigger, ask one concise question first. See [data-sources.md](data-sources.md).

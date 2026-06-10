@@ -37,9 +37,9 @@ Pick the source that matches the request — a named database, an analytics syst
 hermes connections schema [<id>]
 ```
 
-The response leads with `source_type`, `query_language`, and an `example_query`. **Always read this first.** If the source is Firestore, the example is a JSON object; if SQL, it's a SQL string. The full schema (tables/columns or collections/fields) is in the same payload.
+The response leads with `source_type`, `query_language`, and an `example_query`. **Always read this first.** If the source is Firestore or Stripe, the example is a JSON object; if SQL, it's a SQL string. The full schema (tables/columns or collections/fields) is in the same payload.
 
-See [data-sources.md](../reference/data-sources.md) for the canonical per-source matrix — dialect caveats, example detection queries, and the Firestore DSL shape.
+See [data-sources.md](../reference/data-sources.md) for the canonical per-source matrix — dialect caveats, example detection queries, and the Firestore/Stripe DSL shapes.
 
 ## Step 2 — Write and test the detection query
 
@@ -51,6 +51,9 @@ hermes connections query "SELECT id, email FROM users WHERE created_at > now() -
 
 # Firestore
 hermes connections query '{"collection":"users","where":[["tier","==","pro"]],"limit":50}'
+
+# Stripe
+hermes connections query '{"resource":"subscriptions","search":"status:'"'"'past_due'"'"'","limit":50}'
 ```
 
 The response includes a count and a sample. **Iterate here, not on the trigger row** — `hermes connections query` is read-only and free of side effects.
@@ -60,6 +63,7 @@ Check before you submit:
 - Does the row/document count match your expectation? (10 when you expected 1,000, or 50,000 when you expected 100, is a red flag.)
 - Does each result include `email` (and an identifier)?
 - For Firestore: does your query stay inside the [restrictions](../reference/data-sources.md#critical-caveats-read-before-writing-any-firestore-query) (one inequality, no joins, no aggregations)?
+- For Stripe: are timestamps unix seconds, and does the resource carry an email? Prefer `customers` for trigger cohorts — on other resources claims dedupe per object, not per person.
 
 ## Step 3 — Submit the trigger
 
@@ -107,7 +111,7 @@ Two qualities to optimize for:
 | "win back churned users" | `last_login_at < now() - interval '30 days' AND last_login_at > now() - interval '180 days'` |
 | "thank loyal customers" | `lifetime_value > 500` |
 
-**2. The right shape.** The pipeline reads `id` and `email` from each result. If the column is named differently, alias it: `SELECT user_id AS id, contact_email AS email FROM ...`. For Firestore, return documents whose body includes `email`.
+**2. The right shape.** The pipeline reads `id` and `email` from each result. If the column is named differently, alias it: `SELECT user_id AS id, contact_email AS email FROM ...`. For Firestore, return documents whose body includes `email`. For Stripe, rows are normalized to include `id` and (on customer-bearing resources) `email` automatically.
 
 ## Writing a good email prompt
 

@@ -59,9 +59,10 @@ hermes connections add --mysql-url    'mysql://readonly:...@host:3306/db'
 hermes connections add --csv-file     './users.csv'
 hermes connections add --firestore-credentials "$(cat sa.json)" --firestore-project-id my-project
 hermes connections add --posthog-host https://us.posthog.com --posthog-project-id 12345 --posthog-api-key phx_...
+hermes connections add --stripe-api-key rk_live_...
 ```
 
-The CLI introspects the schema and caches a snapshot — tables/columns for SQL sources, collections/inferred fields for Firestore, sampled events for PostHog. This snapshot is the **contract** the caller reads before writing any detection query.
+The CLI introspects the schema and caches a snapshot — tables/columns for SQL sources, collections/inferred fields for Firestore, sampled events for PostHog, supported resources + live counts for Stripe. This snapshot is the **contract** the caller reads before writing any detection query.
 
 You can add **more than one** source. The first becomes the org default; add later sources with `--default` to change which is the fallback. List them any time:
 

@@ -4,7 +4,7 @@ Manage the customer data source that Hermes uses to detect users.
 
 A connection is required before triggers can be created — every `detection_query` runs against a selected connection's source, and the caller writes that query by reading that connection's `schema_snapshot` first.
 
-> **Read [data-sources.md](../data-sources.md) before anything else here.** It defines the supported source types (`postgres`, `mysql`, `csv`, `firestore`, `posthog`), what query language each speaks, the shape of the schema snapshot per source, dialect caveats, and example detection queries. This page covers the CLI surface; data-sources.md covers the model.
+> **Read [data-sources.md](../data-sources.md) before anything else here.** It defines the supported source types (`postgres`, `mysql`, `csv`, `firestore`, `posthog`, `stripe`), what query language each speaks, the shape of the schema snapshot per source, dialect caveats, and example detection queries. This page covers the CLI surface; data-sources.md covers the model.
 
 ## Fields
 
@@ -16,7 +16,7 @@ A connection maps 1:1 to a row in the `connections` table.
 | `org_id`                | uuid                | session           | ✗                                                   | ✗                             | all               | Resolved from the linked org / `--org`.                                                                                                                           |
 | `label`                 | text \| null        | source label      | `--label <label>`                                   | planned                       | all               | Human label shown in Settings and `connections list`.                                                                                                             |
 | `is_default`            | boolean             | first source only | `--default`                                         | planned                       | all               | Default source used when a trigger create call does not pass a source id.                                                                                         |
-| `source_type`           | text                | `"postgres"`      | derived from the `--*-url`/`--*-file` flag on `add` | ✗                             | all               | One of `postgres`, `mysql`, `csv`, `firestore`, `posthog`. Immutable after create.                                                                                |
+| `source_type`           | text                | `"postgres"`      | derived from the `--*-url`/`--*-file` flag on `add` | ✗                             | all               | One of `postgres`, `mysql`, `csv`, `firestore`, `posthog`, `stripe`. Immutable after create.                                                                      |
 | `postgres_url`          | text \| null        | `null`            | `--postgres-url <url>`                              | `--postgres-url <url>`        | `postgres`, `csv` | Postgres connection string. For `csv` connections this points at the managed Postgres Hermes loaded the file into. **Encrypted at rest**; redacted in CLI output. |
 | `mysql_url`             | text \| null        | `null`            | `--mysql-url <url>`                                 | `--mysql-url <url>`           | `mysql`           | MySQL/MariaDB connection string. **Encrypted at rest**; redacted in CLI output.                                                                                   |
 | `firestore_credentials` | text \| null        | `null`            | `--firestore-credentials <json>`                    | same                          | `firestore`       | Firestore service-account JSON. **Encrypted at rest**; redacted in CLI output.                                                                                    |
@@ -24,6 +24,8 @@ A connection maps 1:1 to a row in the `connections` table.
 | `posthog_host`          | text \| null        | `null`            | `--posthog-host <url>`                              | planned                       | `posthog`         | PostHog instance host, e.g. `https://us.posthog.com`.                                                                                                             |
 | `posthog_project_id`    | text \| null        | `null`            | `--posthog-project-id <id>`                         | planned                       | `posthog`         | PostHog project id used in `/api/projects/{project_id}/query`.                                                                                                    |
 | `posthog_api_key`       | text \| null        | `null`            | `--posthog-api-key <key>`                           | planned                       | `posthog`         | PostHog personal API key. **Encrypted at rest**; redacted in CLI output.                                                                                          |
+| `stripe_api_key`        | text \| null        | `null`            | `--stripe-api-key <key>`                            | planned                       | `stripe`          | Stripe secret (`sk_...`) or restricted (`rk_...`) key. **Encrypted at rest**; redacted in CLI output.                                                             |
+| `stripe_account_id`     | text \| null        | `null`            | ✗                                                   | ✗                             | `stripe`          | Stripe account id (`acct_...`), resolved during validation. System-set.                                                                                           |
 | `schema_snapshot`       | jsonb \| null       | `null`            | ✗                                                   | refreshed by `inspect-schema` | all               | Introspected schema. Shape depends on `source_type` — see [data-sources.md](../data-sources.md). System-set.                                                      |
 | `status`                | text                | `"pending"`       | ✗                                                   | ✗                             | all               | Lifecycle: `pending` → `connected` → `synced` → `failed`. System-set.                                                                                             |
 | `last_synced_at`        | timestamptz \| null | `null`            | ✗                                                   | refreshed by `inspect-schema` | all               | Last successful introspection. System-set.                                                                                                                        |
@@ -50,6 +52,8 @@ Every JSON response includes every column above. Fields not applicable to the cu
   "posthog_host": null,
   "posthog_project_id": null,
   "posthog_api_key": null,
+  "stripe_api_key": null,
+  "stripe_account_id": null,
   "schema_snapshot": {
     "source_type": "postgres",
     "query_language": "sql",
@@ -71,7 +75,7 @@ Every JSON response includes every column above. Fields not applicable to the cu
 }
 ```
 
-For Firestore the `schema_snapshot` instead has `query_language: "firestore"` and a `collections` array with `inferred_fields` and `presence_rate` per field. For PostHog it has `query_language: "hogql"` and a sampled list of common events — see [data-sources.md](../data-sources.md).
+For Firestore the `schema_snapshot` instead has `query_language: "firestore"` and a `collections` array with `inferred_fields` and `presence_rate` per field. For PostHog it has `query_language: "hogql"` and a sampled list of common events. For Stripe it has `query_language: "stripe"`, the supported resources with normalized row fields, and an `account_summary` block with live counts — see [data-sources.md](../data-sources.md).
 
 ## Selecting a source (multi-source orgs)
 
@@ -99,6 +103,7 @@ Tells Hermes about another data source. Existing sources and triggers are left i
 | `--mysql-url <url>`                                                      | `mysql`                 | Creates another MySQL source.                                           |
 | `--firestore-credentials <json-or-@file> [--firestore-project-id <id>]`  | `firestore`             | Creates another Firestore source.                                       |
 | `--posthog-host <url> --posthog-project-id <id> --posthog-api-key <key>` | `posthog`               | Creates another PostHog source.                                         |
+| `--stripe-api-key <key>`                                                 | `stripe`                | Creates another Stripe source.                                          |
 | `--csv-file <path> [--table-name <name>]`                                | `csv`                   | Creates another CSV source and ingests the file as a table.             |
 | `--connection <id>`                                                      | `csv`                   | With `--csv-file`, appends the CSV as another table in that CSV source. |
 | `--label <label>`                                                        | all                     | Sets a human-readable label.                                            |
@@ -115,13 +120,14 @@ hermes connections add --csv-file     './users.csv' --label 'Conference leads'
 hermes connections add --csv-file     './orders.csv' --connection <csv-id> --table-name customer_orders
 hermes connections add --firestore-credentials @sa.json --firestore-project-id my-project
 hermes connections add --posthog-host https://us.posthog.com --posthog-project-id 12345 --posthog-api-key phx_...
+hermes connections add --stripe-api-key rk_live_... --label 'Stripe billing'
 ```
 
 For all sources, Hermes validates the credential / file before saving, introspects the schema, and persists the connection in one synchronous call. Returns the full connection row.
 
 `--confirm-switch` is deprecated. `connections add` no longer replaces an existing source.
 
-**Recommendation:** for SQL sources, use a **read-only** user. Hermes only needs `SELECT` on user-related tables. For Firestore, scope the service account to read-only. For PostHog, use the least-privileged personal API key that can run query reads for the project.
+**Recommendation:** for SQL sources, use a **read-only** user. Hermes only needs `SELECT` on user-related tables. For Firestore, scope the service account to read-only. For PostHog, use the least-privileged personal API key that can run query reads for the project. For Stripe, prefer a **restricted key** (`rk_...`) with read access to customers, subscriptions, charges, invoices, payment intents, products, and prices — publishable `pk_` keys are rejected.
 
 ### `hermes connections show <id>`
 

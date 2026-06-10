@@ -21,12 +21,14 @@ hermes triggers create --detection-query "<q>" --email-prompt "..." ...   # 5. s
 | `csv`         | SQL (Postgres dialect)      | SQL       | The user uploads a CSV; Hermes loads it into a managed Postgres and treats it like one. From the agent's perspective, identical to `postgres`. The `csv` label exists only so the UI/user knows where the data originated. |
 | `firestore`   | Firestore JSON DSL          | Document  | NoSQL. No joins, no aggregations, restricted query shape. Reads are metered.                                                                                                                                               |
 | `posthog`     | HogQL                       | Analytics | Product analytics events/persons queried through PostHog's Query API. SQL-like, but not Postgres/MySQL SQL. No cross-source joins.                                                                                         |
+| `stripe`      | Stripe JSON DSL             | SaaS API  | Billing data (customers, subscriptions, charges, invoices, …) queried through Stripe's Search/List APIs. No SQL, no joins, no aggregations.                                                                               |
 
 The `query_language` field on the schema response is what the agent actually dispatches on. Today:
 
 - `sql` → write SQL. Dialect is Postgres unless `source_type === "mysql"`.
 - `firestore` → write a JSON query object (DSL described below).
 - `hogql` → write HogQL for PostHog events/persons.
+- `stripe` → write a JSON query object (Stripe DSL described below).
 
 If a future source family lands (BigQuery, MongoDB, etc.), it will appear here with its own `query_language` value. Read the schema; don't hard-code source types.
 
@@ -226,12 +228,78 @@ LIMIT 200
 
 ---
 
+## SaaS API family: `stripe`
+
+### Schema snapshot shape
+
+```json
+{
+  "source_type": "stripe",
+  "query_language": "stripe",
+  "example_query": { "resource": "customers", "search": "created>1717200000", "limit": 5 },
+  "customers": {
+    "id": "string customer id (cus_...)",
+    "email": "string|null customer email — searchable via email:'...'"
+  },
+  "subscriptions": {
+    "id": "sub_...",
+    "customer_id": "cus_... (flattened)",
+    "email": "flattened from expanded customer",
+    "status": "trialing|active|past_due|canceled|unpaid|..."
+  },
+  "account_summary": {
+    "account": "acct_... — Acme Inc (test mode)",
+    "customers_total": "1,204",
+    "subscriptions_past_due": "9"
+  }
+}
+```
+
+The snapshot lists every supported resource (`customers`, `subscriptions`, `charges`, `invoices`, `payment_intents`, `products`, `prices`) with the fields each normalized row exposes, plus an `account_summary` block with live counts so you can see what's actually populated.
+
+### DSL shape
+
+```json
+{
+  "resource": "subscriptions",
+  "search": "status:'past_due' AND created>1717200000",
+  "limit": 100
+}
+```
+
+- `resource` (string, required) — one of the seven supported resources.
+- `search` (string, optional) — Stripe Search Query Language: `field:'value'` exact match, `field~'value'` substring, `>`/`<`/`>=`/`<=` for numbers and timestamps, `metadata['key']:'value'`, `-field:null` for presence, `AND`/`OR` to combine.
+- `filters` (object, optional) — plain List-endpoint params instead of search, e.g. `{ "status": "active", "created": { "gte": 1717200000 } }`. Use when Search is unavailable or the field isn't searchable. Mutually exclusive with `search`.
+- `limit` (number, optional) — default 25, hard cap 100. Single page; no pagination.
+
+### Critical caveats
+
+- **Timestamps are unix seconds**, not ISO strings. Money amounts are integers in minor currency units (cents).
+- **Rows are normalized.** Every row has a top-level `id`. Subscriptions, charges, invoices, and payment_intents auto-expand the customer and flatten `customer_id` + `email` onto the row. Products and prices have no email — they cannot drive triggers.
+- **Prefer `customers` for trigger cohorts.** On other resources `id` is the object id (e.g. `sub_...`), so recurrence claims dedupe per object, not per person.
+- **No joins, no aggregations.** One resource per query. If you need "customers with >N charges," look for a searchable signal (e.g. `delinquent:'true'`, metadata) instead.
+- **Search may be unavailable** on some accounts/regions — the error says so; retry with `filters`.
+
+### Example detection query (Stripe)
+
+```json
+{
+  "resource": "subscriptions",
+  "search": "status:'past_due'",
+  "limit": 100
+}
+```
+
+Required: rows must include `id` and a non-null `email` (flattened automatically on customer-bearing resources; native on `customers`).
+
+---
+
 ## How the agent decides which dialect to write
 
 The agent flow is identical regardless of source:
 
 1. **Always start with the schema.** `hermes connections schema` returns the source type, query language, an example query, and the structural snapshot. This is the contract.
-2. **Write a candidate query in the matching dialect.** SQL for SQL family, JSON DSL for Firestore, HogQL for PostHog. The example_query field is a literal template — copy and adapt.
+2. **Write a candidate query in the matching dialect.** SQL for SQL family, JSON DSL for Firestore and Stripe, HogQL for PostHog. The example_query field is a literal template — copy and adapt.
 3. **Test before submitting.** `hermes connections query "<q>"` runs the query read-only against the customer's source, returns a sample + count. Iterate here, not on the trigger row.
 4. **Submit the validated query.** `hermes triggers create --detection-query "<q>" --email-prompt "..."` persists the trigger.
 
