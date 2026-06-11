@@ -5,6 +5,11 @@ Use this when designing or redesigning a reusable Hermes email template. The goa
 ## Mental model
 
 - The template is a reusable shell, not a one-off email body.
+- Hermes has two relevant agent roles:
+  - The **normal Hermes Agent** operates the platform: triggers, drafts, analytics, senders, domains, data sources, and CLI-like workflows.
+  - The **Hermes Email Agent** designs reusable email templates and knows the editable email IR, editor capabilities, runtime slots, and email-safe layout constraints.
+- The normal Hermes Agent must delegate template design to the Hermes Email Agent/tooling. It should not hand-author template JSON, runtime-slot syntax, React Email/Tiptap JSON, or low-level editor operations.
+- Template design requests should produce a non-persistent preview first. Applying that preview is approval-gated and saves a draft only; publishing is a separate user action.
 - Think in three related layers:
   - **Page**: outside canvas/background, email width, global font, preview text.
   - **Email surface/card**: the main React Email/Tiptap canvas and card surface. This is document theme, not an editable wrapper block.
