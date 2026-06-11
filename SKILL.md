@@ -82,5 +82,6 @@ The detection query is **not always SQL** — for Firestore and Stripe connectio
 - [Data sources: dialects, schema shapes, example queries](reference/data-sources.md)
 - [Conventions: flags, output, async ops, errors](reference/conventions.md)
 - [API surface — driving Hermes via `hermesApi` (in-app assistant)](reference/api-surface.md)
+- [Email template design — reusable shell quality bar and editor constraints](reference/template-design.md)
 
 > **Two ways to drive Hermes.** In a terminal you use the `hermes` CLI. As the **in-app assistant** you use the `hermesApi` tool (`{ method, path, body }`) — same operations, REST-style. See [api-surface.md](reference/api-surface.md) for the path/body map. The command pages below describe the semantics either way (a CLI flag is a body field).
