@@ -15,6 +15,7 @@ Use this when designing or redesigning a reusable Hermes email template. The goa
   - **Email surface/card**: the main React Email/Tiptap canvas and card surface. This is document theme, not an editable wrapper block.
   - **Content**: editable header, hero, body sections, inner cards, CTA, footer copy, dividers, images, spacers, and runtime slots.
 - Do not recreate imported HTML wrappers like `email-shell` or `email-card` as content sections. Translate only visible inner sections into editable nodes.
+- For pasted HTML, image-heavy references, complex CSS, or exact responsive layouts, adapt the intent into reliable editable email blocks. Be transparent in the draft message or reference summary about what was simplified for email safety and editability.
 - Keep Page changes scoped. Width, page background, global font, preview text, and compliance settings change only when the user clearly asks for setup/page/canvas/outside changes.
 - Email surface/card background and radius are canonical document theme settings: use `update_theme` with `themePatch.colors.surface` and/or `themePatch.radius.lg` when the user asks for the template/card/email surface. Do not create a fake top-level wrapper section to simulate the card.
 - Inner cards or named content blocks still use editable content node styles.
@@ -196,6 +197,8 @@ Buttons must include visible label text. Do not rely on fallback renderer text.
 ## Runtime slots
 
 - `ai_content` is a protected block where generated personalized body copy goes.
+- `ai_content` is a generated body placeholder, not a layout container. Do not add padding, background, border, or radius to `ai_content` unless the user explicitly asks to style the placeholder itself.
+- For spacing around generated copy, style the immediate parent section or insert selectable spacer nodes. If the user asks about generated body padding, inspect/edit the parent section first.
 - `unsubscribe` is a protected runtime link represented only as a richText segment with `runtimeSlot: "unsubscribe"` and `href: "{{unsubscribe_url}}"`.
 - Prefer an inline unsubscribe richText segment inside a footer paragraph, such as `Amazon · Address · Unsubscribe`.
 - For a standalone unsubscribe link, still create a paragraph whose only richText segment is the unsubscribe slot; do not insert a top-level `unsubscribe` node.
