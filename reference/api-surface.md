@@ -40,7 +40,7 @@ When you are the in-app assistant, you drive Hermes through the **`hermesApi`** 
 ### Drafts (review & approve in chat)
 | Call | Purpose |
 |---|---|
-| `GET /drafts` (`?status=drafted\|approved\|…`, `?trigger_id=<id>`) | List drafts awaiting review. |
+| `GET /drafts` (`?status=drafted\|approved\|…`, `?trigger_id=<id>`) | List drafts awaiting review, optionally scoped to one trigger. |
 | `GET /drafts/<id>` | One draft (subject, body, recipient). |
 | `POST /drafts/<id>/approve` | Approve one draft → queues delivery. |
 | `POST /drafts/<id>/reject` | Reject one draft → releases the recipient. |
@@ -49,7 +49,7 @@ When you are the in-app assistant, you drive Hermes through the **`hermesApi`** 
 ### Emails (sent mail + delivery)
 | Call | Purpose |
 |---|---|
-| `GET /emails` (filters) | List sent / in-flight emails. |
+| `GET /emails` (`?status=sent\|delivered\|…`, `?trigger_id=<id>`, `?since=7d`) | List sent / in-flight emails, optionally scoped to one trigger. |
 | `GET /emails/<id>` | One email + its delivery timeline (opens, clicks, bounces). |
 
 ### Analytics
@@ -70,6 +70,6 @@ When you are the in-app assistant, you drive Hermes through the **`hermesApi`** 
 `POST /triggers/<id>/run` and `POST /drafts/approve` are **asynchronous**: they enqueue work and return quickly (a `job_id`), not the final result. Do not claim emails were sent. To observe outcomes, poll:
 
 1. After **run**: `GET /drafts?trigger_id=<id>` to see drafts the run produced.
-2. After **approve**: `GET /emails` (and `GET /emails/<id>`) to confirm delivery, then `GET /analytics/campaign/<id>` for engagement.
+2. After **approve**: `GET /emails?trigger_id=<id>` (and `GET /emails/<id>`) to confirm delivery, then `GET /analytics/campaign/<id>` for engagement.
 
 Tell the user it's processing and report concrete results once the follow-up reads return them.
