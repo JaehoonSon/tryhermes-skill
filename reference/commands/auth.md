@@ -19,10 +19,10 @@ Default: starts the **interactive device-code flow**. The CLI prints a URL and a
 $ hermes auth login
 
 To authorize this CLI, open:
-  https://app.hermes.dev/cli/authorize?code=ABCD-EFGH
+  https://app.hermes.dev/cli/authorize?code=ABCDEFGH
 
 Or visit https://app.hermes.dev/cli/authorize and enter the code:
-  ABCD-EFGH
+  ABCDEFGH
 
 Waiting for approval (expires in 10 min)...
 Authorized. Session saved.
