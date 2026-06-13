@@ -82,6 +82,7 @@ The detection query is **not always SQL** — for Firestore and Stripe connectio
 - [Data sources: dialects, schema shapes, example queries](reference/data-sources.md)
 - [Conventions: flags, output, async ops, errors](reference/conventions.md)
 - [API surface — driving Hermes via `hermesApi` (in-app assistant)](reference/api-surface.md)
+- [Hosted MCP server — connecting agents to Hermes](reference/mcp.md)
 - [Email template design — reusable shell quality bar and editor constraints](reference/template-design.md)
 - [Email design patterns — Hermes-native routes for strong generated templates](reference/email-design-patterns.md)
 
