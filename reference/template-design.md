@@ -32,25 +32,36 @@ Good Hermes templates are quiet, readable, and production-ready:
 - Restrained color: one primary action color, one soft content background/surface, muted secondary text, subtle borders.
 - Email-safe styling: simple blocks, inline-safe colors, border radii, borders, no complex positioning, no CSS grid dependencies, no decorative shadow-heavy layouts.
 - Every visible block should be reproducible manually in the editor: text, image, button, divider, card section, table/list, runtime slot.
+- For blank-template or full-design requests, choose a deliberate design route before writing operations. Do not reuse the same generic header/body/CTA/footer skeleton for every request.
+- Use production-grade default copy. Avoid filler such as "we help folks do stuff", "elevate", "seamless", "next-gen", "lorem ipsum", and vague placeholder shells.
+- The message body area should inherit nearby body typography and spacing. Style the parent section for generated-copy rhythm; do not make `ai_content` a decorative card unless explicitly requested.
 
 ## Layout patterns
 
-Use one of these unless the user asks for a very specific format:
+Use one of these unless the user asks for a very specific format. For richer route guidance, read [email-design-patterns.md](email-design-patterns.md).
 
 1. **Clean lifecycle note**
-   Header logo/text, compact headline, 2-3 short paragraphs, AI body slot, simple CTA, footer with unsubscribe.
+   Header logo/text, compact headline, 2-3 short paragraphs, message body area, simple CTA, footer with unsubscribe.
 
 2. **Signal / insight card**
-   Header, badge, headline, short explanation, soft bordered card with metrics or bullets, AI body slot, CTA, footer.
+   Header, badge, headline, short explanation, soft bordered card with metrics or bullets, message body area, CTA, footer.
 
 3. **Product announcement**
-   Header, hero image or logo, headline, intro, feature list, AI body slot for personalized angle, CTA, footer.
+   Header, hero image or logo, headline, intro, feature list, message body area for personalized angle, CTA, footer.
 
 4. **Executive plain-card**
-   Minimal brand line, short title, mostly paragraph copy, AI body slot, low-emphasis footer. Use for founder/CSM-style outreach.
+   Minimal brand line, short title, mostly paragraph copy, message body area, low-emphasis footer. Use for founder/CSM-style outreach.
 
 5. **Newsletter digest**
-   Header, intro, repeated cards/sections, optional table/list, AI body slot, footer. Keep density scan-friendly.
+   Header, intro, repeated cards/sections, optional table/list, message body area, footer. Keep density scan-friendly.
+
+6. **Welcome / onboarding**
+   Warm brand header, welcoming headline, concise expectation-setting copy, soft first-step panel, message body area, CTA, footer.
+
+7. **Follow-up letter**
+   Minimal brand line, letter-like opening, message body area near the top, low-emphasis reminder/note box, restrained CTA, quiet footer.
+
+Use the route to vary structure, section rhythm, palette, CTA treatment, and footer tone. A Welcome, Follow-up, and Announcement template should not look like the same design with different words.
 
 ## Operation recipes
 
@@ -196,14 +207,16 @@ Buttons must include visible label text. Do not rely on fallback renderer text.
 
 ## Runtime slots
 
-- `ai_content` is a protected block where generated personalized body copy goes.
+- The user-facing concept is **message body area**. The internal IR node for that area is `ai_content`.
+- `ai_content` is a protected block where generated personalized body copy goes at send time.
 - `ai_content` is a generated body placeholder, not a layout container. Do not add padding, background, border, or radius to `ai_content` unless the user explicitly asks to style the placeholder itself.
 - For spacing around generated copy, style the immediate parent section or insert selectable spacer nodes. If the user asks about generated body padding, inspect/edit the parent section first.
+- The user-facing concept is **unsubscribe link**. The internal IR slot is `runtimeSlot: "unsubscribe"`.
 - `unsubscribe` is a protected runtime link represented only as a richText segment with `runtimeSlot: "unsubscribe"` and `href: "{{unsubscribe_url}}"`.
 - Prefer an inline unsubscribe richText segment inside a footer paragraph, such as `Amazon · Address · Unsubscribe`.
 - For a standalone unsubscribe link, still create a paragraph whose only richText segment is the unsubscribe slot; do not insert a top-level `unsubscribe` node.
 - Preserve existing runtime slots during redesign unless the user explicitly asks to move/remove them.
-- Publish-ready marketing templates need exactly one `ai_content` and exactly one `unsubscribe`, but ordinary design drafts do not need to add missing slots.
+- Publish-ready marketing templates need exactly one message body area (`ai_content`) and exactly one unsubscribe link (`runtimeSlot: "unsubscribe"`), but ordinary design drafts do not need to add missing slots.
 - Do not add runtime slots for small edits like copy, colors, spacing, header, button, image, or card styling.
 - Add missing runtime slots only when the user asks for publish readiness, asks for a complete reusable template, or starts from blank and asks to generate a full template.
 - Never create runtime slots with literal `{{ai_content}}`, `{{unsubscribe_url}}`, or ordinary unsubscribe-looking links.
@@ -248,4 +261,4 @@ Buttons must include visible label text. Do not rely on fallback renderer text.
 - Do buttons have visible labels?
 - Are dividers direct `divider` nodes rather than wrapped in sections?
 - Would a human be able to reproduce the design manually with current editor controls?
-- Does the preview still work if generated AI body text is short or long?
+- Does the preview still work if generated message body text is short or long?
