@@ -19,10 +19,13 @@ This skill teaches you the mental model and points you at the right command or w
 organization
   ├── connection           (one or more customer data sources — Postgres, MySQL, CSV, Firestore, PostHog, Stripe; one is the default)
   ├── domain → sender      (a verified domain, then one or more sender identities on it)
+  ├── signal               (a read-only queue of discovered audience insights; you act on one by authoring a trigger)
   └── trigger              (detection query + email prompt, both caller-written; bound to one source)
        ├── draft           (one per detected user, per run, awaiting approval)
        └── email           (a sent or in-flight message)
 ```
+
+**Signals are findings, not machinery.** The strategist surfaces non-obvious audience insights into a queue you `signals list` / `signals show` / triage. A signal carries no detection query — acting on one means *you* author a trigger for that audience. See [work-signals.md](workflows/work-signals.md).
 
 Every command operates on the **linked organization** (set via `hermes link`) unless overridden with `--org`.
 
@@ -67,6 +70,7 @@ The detection query is **not always SQL** — for Firestore and Stripe connectio
 
 **Workflows (task-oriented):**
 - [Getting started end-to-end](workflows/getting-started.md)
+- [Work the signal queue (read, triage, act)](workflows/work-signals.md)
 - [Create a trigger from natural language](workflows/create-trigger.md)
 - [Set up a sending domain and sender](workflows/set-up-sending.md)
 - [Review and send drafts](workflows/review-drafts.md)
@@ -74,7 +78,7 @@ The detection query is **not always SQL** — for Firestore and Stripe connectio
 **Command reference (one file per family):**
 - [auth](reference/commands/auth.md), [link](reference/commands/link.md), [orgs](reference/commands/orgs.md)
 - [connections](reference/commands/connections.md), [domains](reference/commands/domains.md), [senders](reference/commands/senders.md)
-- [triggers](reference/commands/triggers.md), [drafts](reference/commands/drafts.md), [emails](reference/commands/emails.md)
+- [signals](reference/commands/signals.md), [triggers](reference/commands/triggers.md), [drafts](reference/commands/drafts.md), [emails](reference/commands/emails.md)
 - [analytics](reference/commands/analytics.md)
 
 **Background:**

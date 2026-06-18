@@ -10,7 +10,7 @@ Every command operates on a row from one of the tables below. JSON output is the
 
 Top-level tenant. One Hermes org per business / service / campaign-bundle.
 
-- Owns: connections, domains, senders, triggers, drafts, emails.
+- Owns: connections, domains, senders, signals, triggers, drafts, emails.
 - Identified by `slug` (e.g. `acme-marketing`) or `id` (UUID).
 - Brand defaults (`from_name`, `reply_to`, `email_footer`, `company_md`) live on this row and are inherited by triggers/senders unless overridden.
 - Full columns: [orgs.md → Fields](commands/orgs.md#fields).
@@ -49,6 +49,16 @@ An email sender identity — `email_address` plus display metadata, bound to one
 - `is_enabled = false` disables sending without deleting the row.
 - Triggers reference one sender via `sender_identity_id`.
 - Full columns: [senders.md → Fields](commands/senders.md#fields).
+
+## Signal → `signals`
+
+A discovered audience insight surfaced by the strategist — the **read-only discovery queue**. Distinct from a trigger: a signal is a *finding* (who + why + what's at stake), not machinery, and carries no detection query.
+
+- Compact text fields: `headline`, `who`, `audience_size`, `insight`, `why_hidden`, `so_what`, scored by `surprise` (non-obviousness) and `confidence`.
+- `status`: `new` → `reviewed` → `dismissed` (and back); dismissed is hidden from the open queue. This is the only mutable field — triage via `hermes signals review|dismiss|restore`.
+- `observation_count` / `last_observed_at`: how often and when discovery runs re-found it (dedup is per org).
+- **Read & triage only.** Acting on a signal means authoring a trigger for its audience yourself — there's no auto-conversion. Surface new ones with `hermes signals discover` (expensive; once per 48h/org).
+- Full columns: [signals.md → Fields](commands/signals.md#fields).
 
 ## Trigger → `triggers`
 

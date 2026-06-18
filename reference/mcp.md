@@ -1,6 +1,8 @@
 # Hosted MCP server — connecting agents to Hermes
 
-Hermes exposes a hosted (remote) MCP server at **`https://tryhermes.dev/api/mcp`** (Streamable HTTP). It serves a typed tool catalog mirroring the v1 API surface — the same operations as [api-surface.md](api-surface.md), one named tool per endpoint (`list_triggers`, `create_connection`, `approve_draft`, …) — so any MCP-capable client can drive Hermes with nothing to install or self-host.
+Hermes exposes a hosted (remote) MCP server at **`https://tryhermes.dev/api/mcp`** (Streamable HTTP). It serves a typed tool catalog mirroring the v1 API surface — the same operations as [api-surface.md](api-surface.md), one named tool per endpoint (`list_triggers`, `create_connection`, `approve_draft`, `list_signals`, `discover_signals`, …) — so any MCP-capable client can drive Hermes with nothing to install or self-host.
+
+> **Signals over MCP.** `list_signals` / `get_signal` read the discovery queue, `update_signal` triages, and `discover_signals` runs a fresh pass (poll it with `get_discovery_run`). Discovery is **expensive and capped at once per 48h per org** — a `CONFLICT` means one ran recently; read the queue instead. See [signals.md](commands/signals.md).
 
 ## Connecting
 

@@ -26,6 +26,17 @@ When you are the in-app assistant, you drive Hermes through the **`hermesApi`** 
 
 > For authoring a trigger's detection query, the typed query tools (`testRemoteSqlQuery` etc.) are also available and render results inline — prefer them for the iterate-a-query loop; use `hermesApi` query for one-off checks. They accept a `connectionId` to target a non-default source.
 
+### Signals (the discovery queue — read & triage)
+| Call | Purpose |
+|---|---|
+| `GET /signals` (`?status=new\|reviewed\|dismissed`, `?sort=surprise\|recent`, `?include_dismissed=true`, `?limit=`) | List discovered signals. Default: open queue (new + reviewed), strongest first. Returns `{ signals, counts }`. |
+| `GET /signals/<id>` | One signal's full row. |
+| `PATCH /signals/<id>` body `{ "status": "reviewed" \| "dismissed" \| "new" }` | Triage only (no create/send). |
+| `POST /signals/run` | Run a discovery pass. **Expensive — capped at once per 48h/org**; a `CONFLICT` means one ran recently or is running. Async: returns `{ job_id }`. |
+| `GET /signals/run/<job_id>` | Poll a discovery pass: `{ state, signals_found?, error? }`. |
+
+> A signal is a **finding, not machinery**: it has no detection query. To act on one, author a trigger for its audience (`POST /triggers`) using the signal's `who` / `insight` / `so_what` as the brief. See [signals.md](commands/signals.md).
+
 ### Triggers
 | Call | Purpose |
 |---|---|
@@ -71,5 +82,6 @@ When you are the in-app assistant, you drive Hermes through the **`hermesApi`** 
 
 1. After **run**: `GET /drafts?trigger_id=<id>` to see drafts the run produced.
 2. After **approve**: `GET /emails?trigger_id=<id>` (and `GET /emails/<id>`) to confirm delivery, then `GET /analytics/campaign/<id>` for engagement.
+3. After **signals discovery** (`POST /signals/run`): poll `GET /signals/run/<job_id>` until `state` is `completed`, then `GET /signals` to read what it surfaced. Don't claim new signals exist until the read returns them.
 
 Tell the user it's processing and report concrete results once the follow-up reads return them.
