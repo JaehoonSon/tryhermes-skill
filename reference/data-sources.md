@@ -18,6 +18,7 @@ hermes triggers create --detection-query "<q>" --email-prompt "..." ...   # 5. s
 | ------------- | --------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `postgres`    | SQL (Postgres dialect)      | SQL       | Primary, fully-featured.                                                                                                                                                                                                   |
 | `mysql`       | SQL (MySQL/MariaDB dialect) | SQL       | Same tools as Postgres, **dialect differences matter** — see below.                                                                                                                                                        |
+| `mssql`       | SQL (T-SQL dialect)         | SQL       | Microsoft SQL Server / Azure SQL. Same tools as Postgres, **dialect differences matter** — see below.                                                                                                                      |
 | `csv`         | SQL (Postgres dialect)      | SQL       | The user uploads a CSV; Hermes loads it into a managed Postgres and treats it like one. From the agent's perspective, identical to `postgres`. The `csv` label exists only so the UI/user knows where the data originated. |
 | `firestore`   | Firestore JSON DSL          | Document  | NoSQL. No joins, no aggregations, restricted query shape. Reads are metered.                                                                                                                                               |
 | `posthog`     | HogQL                       | Analytics | Product analytics events/persons queried through PostHog's Query API. SQL-like, but not Postgres/MySQL SQL. No cross-source joins.                                                                                         |
@@ -25,7 +26,7 @@ hermes triggers create --detection-query "<q>" --email-prompt "..." ...   # 5. s
 
 The `query_language` field on the schema response is what the agent actually dispatches on. Today:
 
-- `sql` → write SQL. Dialect is Postgres unless `source_type === "mysql"`.
+- `sql` → write SQL. Dialect is Postgres unless `source_type === "mysql"` (MySQL) or `source_type === "mssql"` (T-SQL).
 - `firestore` → write a JSON query object (DSL described below).
 - `hogql` → write HogQL for PostHog events/persons.
 - `stripe` → write a JSON query object (Stripe DSL described below).
@@ -34,7 +35,7 @@ If a future source family lands (BigQuery, MongoDB, etc.), it will appear here w
 
 ---
 
-## SQL family: `postgres`, `mysql`, `csv`
+## SQL family: `postgres`, `mysql`, `mssql`, `csv`
 
 ### Schema snapshot shape
 
@@ -88,6 +89,20 @@ Same SQL family, but several Postgres idioms don't work. When `source_type === "
 - **Boolean:** stored as `TINYINT(1)`. `true`/`false` literals work but results come back as `0`/`1`.
 - **No `generate_series`, no array types, no `DISTINCT ON`.** For "first row per group," use a window function (MySQL 8+): `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)`.
 - **Schema lookups** scope via `information_schema.columns WHERE TABLE_SCHEMA = DATABASE()`. There is no `public` schema.
+
+### SQL Server dialect (`source_type: "mssql"`)
+
+Microsoft SQL Server / Azure SQL speaks T-SQL. When `source_type === "mssql"`:
+
+- **No `LIMIT`.** Use `SELECT TOP 5 ...`, or with `ORDER BY`: `OFFSET 0 ROWS FETCH NEXT 5 ROWS ONLY`.
+- **Quote identifiers with square brackets** `[first name]` (double quotes also work by default). Never backticks.
+- **String literals use single quotes** only. String concat is `+` or `CONCAT(...)`, not `||`.
+- **No `ILIKE`.** Most databases use case-insensitive `_CI_` collations so plain `LIKE` usually matches case-insensitively; otherwise wrap both sides in `LOWER(...)`.
+- **Dates:** use `GETDATE()`/`SYSUTCDATETIME()`, `DATEADD(day, -7, GETDATE())`, `DATEDIFF`, `FORMAT(col, 'yyyy-MM-dd')` or `CONVERT`. Postgres' `NOW()`, `to_char`, `date_trunc`, and `INTERVAL '7 days'` don't work.
+- **JSON:** use `JSON_VALUE(col, '$.path')` / `JSON_QUERY` / `OPENJSON`. Not `->`/`->>` or `jsonb_*`.
+- **Boolean:** columns are `bit` (0/1); there are no `true`/`false` literals in comparisons — write `WHERE is_active = 1`.
+- **No `generate_series`, no array types, no `DISTINCT ON`.** For "first row per group," use `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)`.
+- **Schema prefixes:** default tables live in `dbo` and are addressable bare; other schemas need the prefix (`sales.orders`) — the schema snapshot includes it where needed.
 
 ### CSV (`source_type: "csv"`)
 
@@ -209,7 +224,7 @@ Required: each returned document must have an `email` field (or a denormalized `
 
 - **HogQL is not Postgres SQL.** It uses PostHog's analytics query surface. Use `query_language: "hogql"` and start from the example query.
 - **Events are not a canonical users table.** Recipient identity usually comes from `distinct_id`, `person_id`, or dynamic properties like `properties.email`. Verify the property exists with a small query before using it in a trigger.
-- **No cross-source joins.** A PostHog query cannot join directly to a Postgres/MySQL/CSV/Firestore connection. Use a shared identifier in PostHog, or defer cross-source reasoning to a later analysis/export layer.
+- **No cross-source joins.** A PostHog query cannot join directly to a Postgres/MySQL/SQL Server/CSV/Firestore connection. Use a shared identifier in PostHog, or defer cross-source reasoning to a later analysis/export layer.
 - **Triggers still need recipients.** Detection queries must return `id` and `email` when rows exist, just like SQL-family sources.
 
 ### Example detection query (PostHog)

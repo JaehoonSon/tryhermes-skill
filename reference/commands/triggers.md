@@ -2,7 +2,7 @@
 
 Manage campaign triggers. A trigger pairs an audience (who) with an intent (what to say). The caller (you — agent or human) writes the detection query in the connected source's native dialect and provides an email prompt; Hermes validates the query against the live source, persists the trigger, and runs the pipeline.
 
-> The `detection_query` is **not always SQL.** It's whatever query language the connection speaks — Postgres SQL, MySQL SQL, Firestore JSON DSL, or PostHog HogQL. Read [data-sources.md](../data-sources.md) and the connection's `schema_snapshot` first so you write in the right dialect. Iterate with `hermes connections query` until the result looks right, then submit the same query string to `hermes triggers create`.
+> The `detection_query` is **not always SQL.** It's whatever query language the connection speaks — Postgres SQL, MySQL SQL, SQL Server T-SQL, Firestore JSON DSL, or PostHog HogQL. Read [data-sources.md](../data-sources.md) and the connection's `schema_snapshot` first so you write in the right dialect. Iterate with `hermes connections query` until the result looks right, then submit the same query string to `hermes triggers create`.
 
 ## Fields
 
@@ -14,7 +14,7 @@ A trigger maps 1:1 to a row in the `triggers` table. All fields are returned by 
 | `org_id`                   | uuid            | session           | ✗                                       | ✗                                       | Resolved from the linked org / `--org`.                                                                                                                                                                                                                                |
 | `name`                     | text            | auto-generated    | `--name`                                | `--name`                                | Human label. Auto-generated from intent if omitted.                                                                                                                                                                                                                    |
 | `type`                     | text            | `"custom"`        | `--type`                                | `--type`                                | Free-form category tag (e.g. `"custom"`, `"onboarding"`, `"reactivation"`).                                                                                                                                                                                            |
-| `detection_query`          | text            | —                 | `--detection-query <q>`                 | `--detection-query <q>`                 | The query that selects recipient rows. Source-native dialect — SQL for `postgres`/`mysql`/`csv`, JSON DSL for `firestore` and `stripe`, HogQL for `posthog`. Caller-written; see [data-sources.md](../data-sources.md). Hermes validates against the live source before persisting. |
+| `detection_query`          | text            | —                 | `--detection-query <q>`                 | `--detection-query <q>`                 | The query that selects recipient rows. Source-native dialect — SQL for `postgres`/`mysql`/`mssql`/`csv`, JSON DSL for `firestore` and `stripe`, HogQL for `posthog`. Caller-written; see [data-sources.md](../data-sources.md). Hermes validates against the live source before persisting. |
 | `email_prompt`             | text            | —                 | `--email-prompt <text>`                 | `--email-prompt <text>`                 | The prompt that drives per-user drafting. Plain text, source-agnostic.                                                                                                                                                                                                 |
 | `sender_identity_id`       | uuid \| null    | `null`            | `--sender`                              | `--sender`                              | FK → `email_sender_identities.id`. Required before `activate`.                                                                                                                                                                                                         |
 | `auto_send`                | boolean         | `false`           | `--auto-send` / `--no-auto-send`        | `--auto-send` / `--no-auto-send`        | If true, skip drafts and send on detection.                                                                                                                                                                                                                            |
@@ -85,7 +85,7 @@ You — the caller — are the reasoning loop. Hermes is the platform: it valida
 
 Validates and persists a trigger. Validation runs server-side:
 
-1. **Dialect match** — the query is a SQL string for `postgres`/`mysql`/`csv`, a HogQL string for `posthog`, or a Firestore JSON DSL object for `firestore`. A mismatch returns `QUERY_DIALECT_MISMATCH`.
+1. **Dialect match** — the query is a SQL string for `postgres`/`mysql`/`mssql`/`csv`, a HogQL string for `posthog`, or a Firestore JSON DSL object for `firestore`. A mismatch returns `QUERY_DIALECT_MISMATCH`.
 2. **Dry-run** — Hermes runs the query read-only against the selected source, confirms it executes without error, and captures a row count + sample. A zero-row count is allowed (the audience may populate later) and returned in `detection_preview` so you can decide whether to proceed.
 3. **Required projection** — when the dry-run returns at least one row, it must include `id` and `email`. (A zero-row result skips this check.)
 4. **Sender** — if `--sender` is set, the sender must exist in the org. Domain-verified is enforced at send time, not here.
@@ -93,7 +93,7 @@ Validates and persists a trigger. Validation runs server-side:
 New triggers are created **active** (`is_active = true`) and **not** auto-sending (`auto_send = false`) — the first run's drafts wait for human approval. Returns the full trigger row plus `detection_preview` on success. On validation failure, the response includes the underlying source error.
 
 ```
-# Postgres / MySQL / CSV
+# Postgres / MySQL / SQL Server / CSV
 hermes triggers create \
   --name "Welcome 24h signups" \
   --detection-query "SELECT id, email FROM users WHERE created_at > now() - interval '24 hours'" \
@@ -182,7 +182,7 @@ Removes the trigger. Historical emails survive — the application detaches the 
 ## Notes for agents
 
 - **You are the reasoning loop.** Hermes does not run a chat agent to write your detection query. The flow is: read the schema, write a candidate query, test it with `hermes connections query`, then submit it to `triggers create`. Iterate on the _query_, not on a conversation.
-- **The `detection_query` is dialect-specific.** Read the connection's `schema_snapshot.query_language` (or [data-sources.md](../data-sources.md)) before writing. SQL family ≠ Firestore ≠ PostHog; Postgres SQL ≠ MySQL SQL.
+- **The `detection_query` is dialect-specific.** Read the connection's `schema_snapshot.query_language` (or [data-sources.md](../data-sources.md)) before writing. SQL family ≠ Firestore ≠ PostHog; Postgres SQL ≠ MySQL SQL ≠ T-SQL.
 - **Default to `auto_send: false`** for any new trigger. Have a human approve drafts at least for the first run; switch to `auto_send` only after you've confirmed quality.
 - After `create` returns a trigger id, the typical next steps are: `update --sender <id>` (if you didn't set it on create), then `preview` to sanity-check, then `activate`.
 - The `Fields` table is the source of truth. If you're considering writing a column, find it in the table — if it has no flag, it's not settable.

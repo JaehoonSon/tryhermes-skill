@@ -4,7 +4,7 @@ Manage the customer data source that Hermes uses to detect users.
 
 A connection is required before triggers can be created — every `detection_query` runs against a selected connection's source, and the caller writes that query by reading that connection's `schema_snapshot` first.
 
-> **Read [data-sources.md](../data-sources.md) before anything else here.** It defines the supported source types (`postgres`, `mysql`, `csv`, `firestore`, `posthog`, `stripe`), what query language each speaks, the shape of the schema snapshot per source, dialect caveats, and example detection queries. This page covers the CLI surface; data-sources.md covers the model.
+> **Read [data-sources.md](../data-sources.md) before anything else here.** It defines the supported source types (`postgres`, `mysql`, `mssql`, `csv`, `firestore`, `posthog`, `stripe`), what query language each speaks, the shape of the schema snapshot per source, dialect caveats, and example detection queries. This page covers the CLI surface; data-sources.md covers the model.
 
 ## Fields
 
@@ -16,9 +16,10 @@ A connection maps 1:1 to a row in the `connections` table.
 | `org_id`                | uuid                | session           | ✗                                                   | ✗                             | all               | Resolved from the linked org / `--org`.                                                                                                                           |
 | `label`                 | text \| null        | source label      | `--label <label>`                                   | planned                       | all               | Human label shown in Settings and `connections list`.                                                                                                             |
 | `is_default`            | boolean             | first source only | `--default`                                         | planned                       | all               | Default source used when a trigger create call does not pass a source id.                                                                                         |
-| `source_type`           | text                | `"postgres"`      | derived from the `--*-url`/`--*-file` flag on `add` | ✗                             | all               | One of `postgres`, `mysql`, `csv`, `firestore`, `posthog`, `stripe`. Immutable after create.                                                                      |
+| `source_type`           | text                | `"postgres"`      | derived from the `--*-url`/`--*-file` flag on `add` | ✗                             | all               | One of `postgres`, `mysql`, `mssql`, `csv`, `firestore`, `posthog`, `stripe`. Immutable after create.                                                                      |
 | `postgres_url`          | text \| null        | `null`            | `--postgres-url <url>`                              | `--postgres-url <url>`        | `postgres`, `csv` | Postgres connection string. For `csv` connections this points at the managed Postgres Hermes loaded the file into. **Encrypted at rest**; redacted in CLI output. |
 | `mysql_url`             | text \| null        | `null`            | `--mysql-url <url>`                                 | `--mysql-url <url>`           | `mysql`           | MySQL/MariaDB connection string. **Encrypted at rest**; redacted in CLI output.                                                                                   |
+| `mssql_url`             | text \| null        | `null`            | `--mssql-url <conn>`                                | `--mssql-url <conn>`          | `mssql`           | SQL Server / Azure SQL connection string (ADO.NET or `mssql://` URL). **Encrypted at rest**; redacted in CLI output.                                              |
 | `firestore_credentials` | text \| null        | `null`            | `--firestore-credentials <json>`                    | same                          | `firestore`       | Firestore service-account JSON. **Encrypted at rest**; redacted in CLI output.                                                                                    |
 | `firestore_project_id`  | text \| null        | `null`            | `--firestore-project-id <id>`                       | same                          | `firestore`       |                                                                                                                                                                   |
 | `posthog_host`          | text \| null        | `null`            | `--posthog-host <url>`                              | planned                       | `posthog`         | PostHog instance host, e.g. `https://us.posthog.com`.                                                                                                             |
@@ -47,6 +48,7 @@ Every JSON response includes every column above. Fields not applicable to the cu
   "source_type": "postgres",
   "postgres_url": "<redacted>",
   "mysql_url": null,
+  "mssql_url": null,
   "firestore_credentials": null,
   "firestore_project_id": null,
   "posthog_host": null,
@@ -101,6 +103,7 @@ Tells Hermes about another data source. Existing sources and triggers are left i
 | ------------------------------------------------------------------------ | ----------------------- | ----------------------------------------------------------------------- |
 | `--postgres-url <url>`                                                   | `postgres`              | Creates another Postgres source.                                        |
 | `--mysql-url <url>`                                                      | `mysql`                 | Creates another MySQL source.                                           |
+| `--mssql-url <conn>`                                                     | `mssql`                 | Creates another SQL Server / Azure SQL source.                          |
 | `--firestore-credentials <json-or-@file> [--firestore-project-id <id>]`  | `firestore`             | Creates another Firestore source.                                       |
 | `--posthog-host <url> --posthog-project-id <id> --posthog-api-key <key>` | `posthog`               | Creates another PostHog source.                                         |
 | `--stripe-api-key <key>`                                                 | `stripe`                | Creates another Stripe source.                                          |

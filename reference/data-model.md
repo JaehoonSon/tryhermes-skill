@@ -20,10 +20,10 @@ Top-level tenant. One Hermes org per business / service / campaign-bundle.
 The customer's data source that Hermes watches.
 
 - One org can have multiple sources; one is marked default.
-- `source_type`: one of `postgres`, `mysql`, `csv`, `firestore`, `posthog`, `stripe`. Postgres/MySQL/CSV are SQL-family (CSV is loaded into a managed Postgres and queried as such); Firestore is a NoSQL document store with its own JSON DSL; PostHog uses HogQL for analytics events/persons; Stripe uses a JSON DSL over Stripe's Search/List APIs for billing data. See **[data-sources.md](data-sources.md)** for the full per-source matrix — query language, schema snapshot shape, dialect caveats, example detection queries.
+- `source_type`: one of `postgres`, `mysql`, `mssql`, `csv`, `firestore`, `posthog`, `stripe`. Postgres/MySQL/SQL Server/CSV are SQL-family (CSV is loaded into a managed Postgres and queried as such); Firestore is a NoSQL document store with its own JSON DSL; PostHog uses HogQL for analytics events/persons; Stripe uses a JSON DSL over Stripe's Search/List APIs for billing data. See **[data-sources.md](data-sources.md)** for the full per-source matrix — query language, schema snapshot shape, dialect caveats, example detection queries.
 - `status`: `pending` → `connected` → `synced` → `failed`.
 - `schema_snapshot` is what the caller reads to discover the source's tables/collections, dialect, and a literal example query for that source. It's the contract — always read it before writing a `detection_query`.
-- Secret columns (`postgres_url`, `mysql_url`, `firestore_credentials`, `posthog_api_key`, `stripe_api_key`) are encrypted at rest and returned as `"<redacted>"` in CLI output.
+- Secret columns (`postgres_url`, `mysql_url`, `mssql_url`, `firestore_credentials`, `posthog_api_key`, `stripe_api_key`) are encrypted at rest and returned as `"<redacted>"` in CLI output.
 - Full columns: [connections.md → Fields](commands/connections.md#fields).
 
 ## Domain → `email_domains`
